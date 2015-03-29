@@ -1,1 +1,2 @@
 com.googlecode.slotted.processor.GinSingletonProcessor
+com.googlecode.slotted.processor.QuickDtoProcessor
