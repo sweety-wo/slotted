@@ -28,7 +28,9 @@ import javax.lang.model.util.SimpleTypeVisitor7;
 import javax.tools.Diagnostic.Kind;
 import javax.tools.JavaFileObject;
 
+import com.googlecode.slotted.client.quickdto.EqualsHashCode;
 import com.googlecode.slotted.client.quickdto.QuickDto;
+import com.googlecode.slotted.client.quickdto.ReadOnly;
 
 
 @SupportedAnnotationTypes({"com.googlecode.slotted.client.quickdto.QuickDto"})
@@ -71,6 +73,13 @@ public class QuickDtoProcessor extends AbstractProcessor {
                 TypeMirror mirror = subelement.asType();
                 Field field = mirror.accept(getType, subelement);
                 createNames(field);
+
+                if (subelement.getAnnotation(EqualsHashCode.class) != null) {
+                    field.equalsHashCode = true;
+                }
+                if (subelement.getAnnotation(ReadOnly.class) != null) {
+                    field.readOnly = true;
+                }
 
                 Field existing = dtoDef.fields.get(field.fieldName);
                 if (existing == null) {
@@ -163,17 +172,19 @@ public class QuickDtoProcessor extends AbstractProcessor {
             bw.append("\t\treturn ").append(field.fieldName).append(";\n");
             bw.append("\t}\n");
             bw.newLine();
-            bw.append("\tpublic void set").append(field.accessorName).append("(").append(field.type).append(" ").append(field.fieldName).append(") {\n");
-
-            if (field.primitive) {
-                bw.append("\t\tif (this.").append(field.fieldName).append(" != ").append(field.fieldName).append(") {\n");
-            } else {
-                bw.append("\t\tif (Dto.safeEquals(this.").append(field.fieldName).append(", ").append(field.fieldName).append(")) {\n");
+            if (!field.readOnly) {
+                bw.append("\tpublic void set").append(field.accessorName).append("(").append(field.type).append(" ").append(field.fieldName).append(") {\n");
+                if (field.primitive) {
+                    bw.append("\t\tif (this.").append(field.fieldName).append(" != ").append(field.fieldName).append(") {\n");
+                } else {
+                    bw.append("\t\tif (Dto.safeEquals(this.").append(field.fieldName).append(", ").append(field.fieldName).append(")) {\n");
+                }
+                bw.append("\t\t\tsetDirty(Fields.").append(field.enumName).append(", true);\n");
+                bw.append("\t\t\tthis.").append(field.fieldName).append(" = ").append(field.fieldName).append(";\n");
+                bw.append("\t\t}\n");
+                bw.append("\t}\n");
+                bw.newLine();
             }
-            bw.append("\t\t\tsetDirty(Fields.").append(field.enumName).append(", true);\n");
-            bw.append("\t\t\tthis.").append(field.fieldName).append(" = ").append(field.fieldName).append(";\n");
-            bw.append("\t\t}\n");
-            bw.append("\t}\n");
         }
     }
 
@@ -255,7 +266,7 @@ public class QuickDtoProcessor extends AbstractProcessor {
             }
         }
 
-        bw.append("\t\treturn result;");
+        bw.append("\t\treturn result;\n");
         bw.append("\t}\n");
         bw.newLine();
     }
